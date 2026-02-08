@@ -37,6 +37,18 @@ def init_state() -> None:
     st.session_state.setdefault("vxp_pending_regime", None)
     st.session_state.setdefault("vxp_acq_in_progress", False)
 
+    # Aircraft Info / Note Codes (legacy dialogs)
+    st.session_state.setdefault(
+        "vxp_aircraft",
+        {
+            "weight": 0.0,
+            "cg": 0.0,
+            "hours": 0.0,
+            "initials": "",
+        },
+    )
+    st.session_state.setdefault("vxp_note_codes", set())
+
 
 def current_run_data(run: int):
     return st.session_state.vxp_runs.setdefault(run, {})
@@ -195,6 +207,8 @@ def render_active_window() -> None:
         screen_next_run_window()
     elif screen == "aircraft_info":
         screen_aircraft_info_window()
+    elif screen == "note_codes":
+        screen_note_codes_window()
     else:
         screen_not_impl_window()
 
@@ -467,9 +481,109 @@ def screen_next_run_window():
 
 
 def screen_aircraft_info_window():
-    win_caption("Aircraft Info", active=True)
-    st.write("(Placeholder) Aircraft information screen.")
+    win_caption("AIRCRAFT INFO", active=True)
+    st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
+    info = st.session_state["vxp_aircraft"]
+
+    # Layout like the legacy dialog: labels at left, inputs centered, empty area at right.
+    lab, inp, _pad = st.columns([0.30, 0.36, 0.34], gap="large")
+    with lab:
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        st.markdown("WEIGHT:")
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+        st.markdown("C.G. :")
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+        st.markdown("HOURS:")
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+        st.markdown("INITIALS:")
+
+    with inp:
+        info["weight"] = float(
+            st.number_input(
+                "",
+                value=float(info.get("weight", 0.0)),
+                step=1.0,
+                key="air_weight",
+                label_visibility="collapsed",
+            )
+        )
+        info["cg"] = float(
+            st.number_input(
+                "",
+                value=float(info.get("cg", 0.0)),
+                step=0.1,
+                key="air_cg",
+                label_visibility="collapsed",
+            )
+        )
+        info["hours"] = float(
+            st.number_input(
+                "",
+                value=float(info.get("hours", 0.0)),
+                step=1.0,
+                key="air_hours",
+                label_visibility="collapsed",
+            )
+        )
+        info["initials"] = str(
+            st.text_input(
+                "",
+                value=str(info.get("initials", "")),
+                key="air_initials",
+                label_visibility="collapsed",
+            )
+        )
+
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    pad_l, mid, pad_r = st.columns([0.08, 0.84, 0.08])
+    with mid:
+        if st.button("Note Codes", use_container_width=True, key="air_note_codes"):
+            go("note_codes")
+            st.rerun()
+
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
     right_close_button("Close", on_click=lambda: go("home"))
+
+
+def screen_note_codes_window():
+    win_caption("NOTE CODES", active=True)
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+    # Minimal set (training / placeholder). You can extend this list later.
+    codes = [
+        (0, "Scheduled Insp"),
+        (1, "Balance"),
+        (2, "Troubleshooting"),
+        (3, "Low Freq Vib"),
+        (4, "Med Freq Vib"),
+        (5, "High Freq Vib"),
+        (6, "Component Change"),
+    ]
+
+    selected = st.session_state["vxp_note_codes"]
+
+    # Centered list with a check column, like other VXP screens.
+    pad_l, mid, pad_r = st.columns([0.10, 0.80, 0.10])
+    with mid:
+        for code, name in codes:
+            cols = st.columns([0.84, 0.16], gap="small")
+            with cols[0]:
+                if st.button(f"{code:02d}  {name}", use_container_width=True, key=f"nc_btn_{code}"):
+                    if code in selected:
+                        selected.remove(code)
+                    else:
+                        selected.add(code)
+                    st.rerun()
+            with cols[1]:
+                st.markdown(
+                    f"<div style='font-size:22px; font-weight:900; padding-top:10px;'>"
+                    f"{'✓' if code in selected else ''}"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+
+    right_close_button("Close", on_click=lambda: go("aircraft_info"))
 
 
 def screen_not_impl_window():

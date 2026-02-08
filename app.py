@@ -38,7 +38,7 @@ def main():
     with right:
         render_desktop()
 
-    
+    # (2) Sin barra inferior: el espacio de trabajo ocupa toda la pantalla útil.
 
 if __name__ == "__main__":
     main()

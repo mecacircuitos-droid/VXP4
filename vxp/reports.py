@@ -6,6 +6,9 @@ BLADES = ["BLU", "GRN", "YEL", "RED"]
 DISPLAY_POINTS: List[Tuple[str, str]] = [
     ("100% Ground", "GROUND"),
     ("Hover Flight", "HOVER"),
+    ("Hover IGE (est)", "HOVER"),
+    ("40 KIAS (est)", "HORIZONTAL"),
+    ("80 KIAS (est)", "HORIZONTAL"),
     ("Horizontal Flight", "HORIZONTAL"),
 ]
 
@@ -44,4 +47,3 @@ def legacy_results_text(run: int, meas_by_regime: Dict[str, Measurement]) -> str
 
     lines.append("")
     return "\n".join(lines)
-

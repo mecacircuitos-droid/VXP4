@@ -141,7 +141,7 @@ div[data-testid="stAppViewContainer"] .block-container div.element-container{ ma
 
 @supports selector(:has(*)) {
   div[data-testid="stVerticalBlockBorderWrapper"]:has(.vxp-desktop-marker){
-    height:698px !important;         /* 768 - 26 - 22 - 22 */
+    height:720px !important;         /* 768 - 26 - 22 */
     background:#c0c0c0 !important;
     border:0 !important;
     border-top:2px solid #ffffff !important;
@@ -158,7 +158,7 @@ div[data-testid="stAppViewContainer"] .block-container div.element-container{ ma
 @supports not selector(:has(*)) {
   /* Fallback: if :has() is not available, we assume there's only one bordered container. */
   div[data-testid="stVerticalBlockBorderWrapper"]{
-    height:698px !important;
+    height:720px !important;
     background:#c0c0c0 !important;
     border:0 !important;
     border-top:2px solid #ffffff !important;
