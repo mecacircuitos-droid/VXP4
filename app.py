@@ -42,7 +42,7 @@ def main():
      #st.markdown(
         # "<div class='vxp-shell-statusbar'><div>READY</div><div></div></div>",
          # unsafe_allow_html=True,
-    )
+     #)
 
 if __name__ == "__main__":
     main()
