@@ -183,8 +183,6 @@ def plot_measurements_panel(meas_by_regime: Dict[str, Measurement], selected_reg
         txt_r = min(amp + 0.03, rmax * 0.98)
         ax3.text(theta, txt_r, f"{tag} {amp:.2f}", fontsize=8, ha="center")
 
-    ax3.set_title("1/rev Balance", fontsize=10, fontweight="bold", pad=10)
-
     fig.subplots_adjust(left=0.08, right=0.98, top=0.97, bottom=0.06)
     return fig
 
@@ -254,7 +252,6 @@ def plot_polar(meas: Measurement) -> plt.Figure:
     theta = math.radians(meas.balance.phase_deg)
     ax.plot([theta], [meas.balance.amp_ips], marker="o", markersize=7)
     ax.text(theta, meas.balance.amp_ips + 0.01, f"{meas.balance.amp_ips:.2f}", fontsize=8, ha="center")
-    ax.set_title("1/rev Balance", fontsize=9, fontweight="bold", pad=8)
     fig.tight_layout(pad=0.55)
     return fig
 
@@ -285,7 +282,5 @@ def plot_polar_compare(meas_by_regime: Dict[str, Measurement]) -> plt.Figure:
         ax.plot([theta], [meas.balance.amp_ips], marker="o", markersize=6)
         tag = "GND" if r == "GROUND" else ("HOV" if r == "HOVER" else "HOR")
         ax.text(theta, meas.balance.amp_ips + 0.012, tag, fontsize=8, ha="center")
-
-    ax.set_title("1/rev Balance (compare)", fontsize=9, fontweight="bold", pad=6)
     fig.tight_layout(pad=0.5)
     return fig
