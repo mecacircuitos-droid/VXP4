@@ -345,10 +345,44 @@ def screen_meas_list_window():
 def screen_meas_graph_window():
     win_caption("MEASUREMENTS GRAPH", active=True)
 
-    # Compact controls row (like the original)
-    ctrl = st.columns([0.22, 0.78], gap="small")
+    # Controls row: small selectors (the Streamlit defaults are too tall).
+    st.markdown(
+        """
+<style>
+/* Make selectboxes compact only on this screen */
+div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] div[role="combobox"]{
+  min-height:28px !important;
+  height:28px !important;
+  font-size:12px !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] div[role="combobox"] > div{
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+    ctrl = st.columns([0.16, 0.84], gap="small")
     with ctrl[0]:
-        view_run = run_selector_inline(key="run_selector_meas_graph")
+        st.markdown("<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Run</div>", unsafe_allow_html=True)
+        runs = sorted(st.session_state.vxp_runs.keys())
+        cur = int(st.session_state.vxp_view_run)
+        if cur not in runs:
+            cur = runs[0]
+            st.session_state.vxp_view_run = cur
+        idx = runs.index(cur)
+        view_run = int(
+            st.selectbox(
+                "",
+                runs,
+                index=idx,
+                key="run_selector_meas_graph_compact",
+                label_visibility="collapsed",
+            )
+        )
+        st.session_state.vxp_view_run = view_run
 
     data = current_run_data(view_run)
     if not data:
@@ -358,13 +392,17 @@ def screen_meas_graph_window():
 
     available = [r for r in REGIMES if r in data]
     with ctrl[1]:
-        # Include run in the key to avoid any chance of collisions when switching
-        # runs quickly (some Streamlit builds can be picky about implicit keys).
+        st.markdown(
+            "<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Select Measurement</div>",
+            unsafe_allow_html=True,
+        )
+        # Include run in the key to avoid collisions when switching quickly.
         sel = st.selectbox(
-            "Select Measurement",
+            "",
             available,
             format_func=lambda rr: REGIME_LABEL[rr],
             key=f"meas_sel_run_{view_run}",
+            label_visibility="collapsed",
         )
 
     m = data[sel]
@@ -372,14 +410,15 @@ def screen_meas_graph_window():
     # Data for comparison graphs (up to the 3 regimes)
     compare = {r: data[r] for r in REGIMES if r in data}
 
-    left, right = st.columns([0.56, 0.44], gap="medium")
+    # Give the plots a little more width (they were cramped)
+    left, right = st.columns([0.50, 0.50], gap="medium")
     with left:
         st.markdown(
-            f"<div class='vxp-mono' style='height:330px; overflow:auto;'>{legacy_results_text(view_run, data)}</div>",
+            f"<div class='vxp-mono' style='height:420px; overflow:auto;'>{legacy_results_text(view_run, data)}</div>",
             unsafe_allow_html=True,
         )
     with right:
-        # Smaller charts + comparison plots (track marker, track over regimes, polar compare)
+        # Compact graphs (hide legends / numeric clutter) so they fit like the legacy VXP.
         st.pyplot(plot_track_marker(m), clear_figure=True)
         st.pyplot(plot_track_graph(compare), clear_figure=True)
         st.pyplot(plot_polar_compare(compare), clear_figure=True)
