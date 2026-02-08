@@ -18,7 +18,7 @@ def main():
     # --- Shell superior (título + menús) ---
     st.markdown(
         "<div class='vxp-shell-titlebar'>"
-        "<div>Chadwick-Helmuth VXP  —  TORMES</div>"
+        "<div>Chadwick-Helmuth VXP  —  SIMULADOR</div>"
         "<div class='vxp-winbtns'>"
         "<div class='vxp-winbtn'>_</div>"
         "<div class='vxp-winbtn'>□</div>"
