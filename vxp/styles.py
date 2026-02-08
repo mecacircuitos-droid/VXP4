@@ -41,21 +41,13 @@ html, body, [data-testid="stAppViewContainer"]{
   font-weight:700;
 }
 
-/* Centra el marco 1024×768 en el viewport para que la barra inferior no quede “a media pantalla”
-   en monitores altos (reproduce mejor la sensación de aplicación nativa maximizada). */
-[data-testid="stAppViewContainer"] .main{
-  height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:0 !important;
-}
-
 /* Force 4:3 frame (1024×768) */
 .block-container{
+  display:flex;
+  flex-direction:column;
   padding:0 !important;
   max-width:1024px !important;
-  margin:0 !important;
+  margin:0 auto !important;
   height:768px !important;
   min-height:768px !important;
   overflow:hidden !important;
@@ -132,15 +124,11 @@ html, body, [data-testid="stAppViewContainer"]{
   box-sizing:border-box;
   font-size:12px;
   font-weight:700;
-  position:absolute;
-  left:0;
-  right:0;
-  bottom:0;
-  z-index:1000;
+  position:static;
 }
 
 /* Reduce Streamlit element margins so the status bar sits tight at the bottom */
-div[data-testid="stAppViewContainer"] .block-container div.element-container{ margin-bottom:0 !important; }
+div[data-testid="stAppViewContainer"] .block-container div.element-container{ margin-bottom:0 !important; margin-top:0 !important; }
 
 /* ---- Left smart icon bar ---- */
 .vxp-toolbar-img{ width:81px; padding:0; margin:0; }

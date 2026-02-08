@@ -11,9 +11,8 @@ REGIME_LABEL = {"GROUND":"100% Ground","HOVER":"Hover Flight","HORIZONTAL":"Hori
 
 BLADE_CLOCK_DEG = {"YEL": 0.0, "RED": 90.0, "BLU": 180.0, "GRN": 270.0}
 
-# BO105 (entrenamiento) — se usa como valor mostrado (no es un dato operativo real).
-# Coincide con el prototipo anterior y con la referencia que se mostraba en pantalla.
-BO105_DISPLAY_RPM = 424.0
+# BO105 (entrenamiento) — RPM típica de referencia en el banco del simulador
+BO105_DISPLAY_RPM = 433.0
 
 PITCHLINK_MM_PER_TURN = 10.0
 TRIMTAB_MMTRACK_PER_MM = 15.0
