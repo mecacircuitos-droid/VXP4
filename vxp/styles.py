@@ -14,7 +14,7 @@ def _b64(path: Path) -> str:
     return base64.b64encode(path.read_bytes()).decode("ascii")
 
 
-_ASSET_BG = Path(__file__).parent / "assets" / "backgrounds" / "cockpit.jpg"
+_ASSET_BG = Path(__file__).parent / "assets" / "backgrounds" / "rugged_tablet.png"
 BG_B64 = _b64(_ASSET_BG) if _ASSET_BG.exists() else ""
 
 
@@ -41,11 +41,21 @@ html, body, [data-testid="stAppViewContainer"]{
   font-weight:700;
 }
 
+/* Centra el marco 1024×768 en el viewport para que la barra inferior no quede “a media pantalla”
+   en monitores altos (reproduce mejor la sensación de aplicación nativa maximizada). */
+[data-testid="stAppViewContainer"] .main{
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 !important;
+}
+
 /* Force 4:3 frame (1024×768) */
 .block-container{
   padding:0 !important;
   max-width:1024px !important;
-  margin:0 auto !important;
+  margin:0 !important;
   height:768px !important;
   min-height:768px !important;
   overflow:hidden !important;
@@ -126,6 +136,7 @@ html, body, [data-testid="stAppViewContainer"]{
   left:0;
   right:0;
   bottom:0;
+  z-index:1000;
 }
 
 /* Reduce Streamlit element margins so the status bar sits tight at the bottom */

@@ -254,13 +254,15 @@ def render_select_procedure_window(active: bool) -> None:
     win_caption("Select Procedure:", active=active)
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
-    left, _ = st.columns([0.72, 0.28], gap="small")
-    with left:
+    # En el VXP original la lista de procedimientos queda centrada en el área de trabajo.
+    # Usamos columnas para conseguir el mismo “panel” centrado sin dejar un bloque vacío a la derecha.
+    _, mid, _ = st.columns([0.12, 0.76, 0.12], gap="small")
+    with mid:
         if st.button("Aircraft Info", use_container_width=True, key="home_aircraft_info"):
             go("aircraft_info")
             st.rerun()
 
-        # Main Rotor runs (1..3)
+        # Main Rotor runs (1..3) – en el original aparecen 1, 2 y 3 directamente.
         for run in (1, 2, 3):
             label = f"Main Rotor Balance Run {run}"
             if st.button(label, use_container_width=True, key=f"home_mr_run_{run}"):
@@ -269,6 +271,10 @@ def render_select_procedure_window(active: bool) -> None:
                 go("mr_menu")
                 st.rerun()
 
+        # Separación visual como en el original (entre Main Rotor y Tail Rotor).
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+
+        # Tail Rotor: en el original SOLO se muestra Run 1 (Run 2/3 se habilitan con NEXT RUN).
         if st.button("Tail Rotor Balance Run 1", use_container_width=True, key="home_tr_run1"):
             go("tr_menu")
             st.rerun()
