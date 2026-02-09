@@ -13,7 +13,53 @@ from .sim import (
 )
 from .reports import legacy_results_text
 from .plots import plot_measurements_panel, plot_track_marker, plot_track_graph, plot_polar, plot_polar_compare
-from .solver import all_ok
+from .solver import all_ok, regime_status
+
+
+def _status_icon_html(status: str | None) -> str:
+    """Return an inline SVG approximating the legacy VXP status symbols."""
+
+    if status is None:
+        return ""
+
+    # Colors approximate the legacy documentation screenshots.
+    if status == "OK":
+        fill = "#18b918"  # green
+        # Check mark
+        return (
+            "<svg width='22' height='22' viewBox='0 0 24 24' "
+            "xmlns='http://www.w3.org/2000/svg'>"
+            f"<path fill='{fill}' d='M9.0 16.2 4.8 12.0 3.4 13.4 9.0 19 21 7 "
+            "19.6 5.6z'/></svg>"
+        )
+
+    if status == "WARN":
+        fill = "#18b918"  # green exclamation (as in help legend)
+        return (
+            "<svg width='22' height='22' viewBox='0 0 24 24' "
+            "xmlns='http://www.w3.org/2000/svg'>"
+            f"<path fill='{fill}' d='M12 2a2 2 0 0 1 2 2v10a2 2 0 0 1-4 0V4a2 2 0 0 1 2-2z'/>"
+            f"<circle fill='{fill}' cx='12' cy='20' r='2'/>"
+            "</svg>"
+        )
+
+    if status == "STOP":
+        red = "#d11818"
+        # Octagon + exclamation
+        return (
+            "<svg width='22' height='22' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>"
+            f"<path fill='{red}' d='M7.0 2h10l5 5v10l-5 5H7l-5-5V7z'/>"
+            "<path fill='#fff' d='M12 6.5c.7 0 1.25.55 1.25 1.25v6.7c0 .7-.55 1.25-1.25 1.25S10.75 15.15 10.75 14.45v-6.7C10.75 7.05 11.3 6.5 12 6.5z'/>"
+            "<circle fill='#fff' cx='12' cy='18.9' r='1.4'/>"
+            "</svg>"
+        )
+
+    # DONE / fallback: black check
+    return (
+        "<svg width='22' height='22' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>"
+        "<path fill='#111' d='M9.0 16.2 4.8 12.0 3.4 13.4 9.0 19 21 7 19.6 5.6z'/>"
+        "</svg>"
+    )
 
 
 # ---------------------------
@@ -36,6 +82,7 @@ def init_state() -> None:
     st.session_state.setdefault("vxp_adjustments", default_adjustments())
     st.session_state.setdefault("vxp_pending_regime", None)
     st.session_state.setdefault("vxp_acq_in_progress", False)
+    st.session_state.setdefault("vxp_acq_done", False)
 
     # Aircraft Info / Note Codes (legacy dialogs)
     st.session_state.setdefault(
@@ -261,28 +308,32 @@ def screen_mr_menu_window():
 
 def screen_collect_window():
     run = int(st.session_state.vxp_run)
-    win_caption(f"Main Rotor: Run {run}    Day Mode", active=True)
+    # Match the original look: small caption with RPM, then the procedure line.
+    win_caption(f"RPM  {BO105_DISPLAY_RPM:.1f}", active=True)
     st.markdown(
-        f"<div style='display:flex; justify-content:space-between; font-weight:900; margin-top:6px;'>"
-        f"<div>RPM&nbsp;&nbsp;{BO105_DISPLAY_RPM:.1f}</div><div></div>"
-        "</div>",
+        f"<div class='vxp-label' style='margin-top:8px;'>Main Rotor: Run {run} &nbsp;&nbsp;&nbsp; Day Mode</div>",
         unsafe_allow_html=True,
     )
 
     done = completed_set(run)
+    data = current_run_data(run)
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-    # Regime buttons with checkmarks like the original
+    # Regime buttons with legacy-style symbols like the original
     for r in REGIMES:
         cols = st.columns([0.84, 0.16])
         with cols[0]:
             if st.button(REGIME_LABEL[r], use_container_width=True, key=f"reg_{run}_{r}"):
                 st.session_state.vxp_pending_regime = r
+                st.session_state.vxp_acq_done = False
                 go("acquire")
                 st.rerun()
         with cols[1]:
+            icon = _status_icon_html(regime_status(r, data.get(r)))
             st.markdown(
-                f"<div style='font-size:22px; font-weight:900; padding-top:10px;'>{'✓' if r in done else ''}</div>",
+                f"<div style='height:40px; display:flex; align-items:center; justify-content:center;'>"
+                f"{icon if r in done else ''}"
+                "</div>",
                 unsafe_allow_html=True,
             )
 
@@ -297,34 +348,109 @@ def screen_collect_window():
 
 
 def screen_acquire_window():
-    win_caption("ACQUIRING …", active=True)
     run = int(st.session_state.vxp_run)
     regime = st.session_state.get("vxp_pending_regime")
     if not regime:
         right_close_button("Close", on_click=lambda: go("collect"))
         return
 
-    st.markdown(f"<div class='vxp-label' style='margin-top:8px;'>{REGIME_LABEL[regime]}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='vxp-label'>RPM {BO105_DISPLAY_RPM:.1f}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='vxp-mono'>M/R LAT\t\tACQUIRING\n\nM/R OBT\t\tACQUIRING</div>", unsafe_allow_html=True)
+    # Mimic the original: background "regime list" at left + acquisition dialog at right.
+    left, right = st.columns([0.44, 0.56], gap="medium")
 
-    if not st.session_state.get("vxp_acq_in_progress", False):
-        st.session_state.vxp_acq_in_progress = True
-        p = st.progress(0)
-        for i in range(80):
-            time.sleep(0.01)
-            p.progress(i + 1)
+    with left:
+        win_caption(f"RPM  {BO105_DISPLAY_RPM:.1f}", active=False)
+        st.markdown(
+            f"<div class='vxp-label' style='margin-top:8px;'>Main Rotor: Run {run} &nbsp;&nbsp;&nbsp; Day Mode</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-        meas = simulate_measurement(run, regime, st.session_state.vxp_adjustments)
-        current_run_data(run)[regime] = meas
-        completed_set(run).add(regime)
+        data = current_run_data(run)
+        done = completed_set(run)
+        for r in REGIMES:
+            cols = st.columns([0.84, 0.16])
+            with cols[0]:
+                st.button(
+                    REGIME_LABEL[r],
+                    use_container_width=True,
+                    disabled=True,
+                    key=f"acq_bg_{run}_{r}",
+                )
+            with cols[1]:
+                icon = _status_icon_html(regime_status(r, data.get(r)))
+                st.markdown(
+                    f"<div style='height:40px; display:flex; align-items:center; justify-content:center;'>"
+                    f"{icon if r in done else ''}"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
 
-        st.session_state.vxp_pending_regime = None
-        st.session_state.vxp_acq_in_progress = False
-        go("collect")
-        st.rerun()
+    with right:
+        win_caption("ACQUIRING …", active=True)
+        st.markdown(
+            f"<div class='vxp-label' style='margin-top:8px;'>{REGIME_LABEL[regime]}</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"<div class='vxp-label'>RPM {BO105_DISPLAY_RPM:.0f}</div>",
+            unsafe_allow_html=True,
+        )
 
-    right_close_button("Close", on_click=lambda: go("collect"))
+        # Two-channel layout like the legacy dialog.
+        box = st.empty()
+
+        if not st.session_state.get("vxp_acq_done", False):
+            if not st.session_state.get("vxp_acq_in_progress", False):
+                st.session_state.vxp_acq_in_progress = True
+
+                # Longer test time (user requested): ~4 seconds.
+                steps = 40
+                for i in range(steps):
+                    dots = "." * ((i // 4) % 4)
+                    box.markdown(
+                        "<div class='vxp-mono' style='white-space:pre; border-top:2px solid #808080; border-left:2px solid #808080; border-right:2px solid #ffffff; border-bottom:2px solid #ffffff; padding:10px; background:#c0c0c0;'>"
+                        f"ACQUIRING {dots}\n"
+                        "ROLL (A-B)\t\t1P\n"
+                        "ACQUIRING\n\n"
+                        "M/R LAT\t\t1P\tACQUIRING\n"
+                        "--------------------------------\n"
+                        "M/R OBT\t\t\tACQUIRING\n"
+                        "</div>",
+                        unsafe_allow_html=True,
+                    )
+                    time.sleep(0.1)
+
+                meas = simulate_measurement(run, regime, st.session_state.vxp_adjustments)
+                current_run_data(run)[regime] = meas
+                completed_set(run).add(regime)
+
+                st.session_state.vxp_acq_in_progress = False
+                st.session_state.vxp_acq_done = True
+                st.rerun()
+
+        # Acquisition done state (shows Close button like original)
+        status = regime_status(regime, current_run_data(run).get(regime))
+        if st.session_state.get("vxp_acq_done", False):
+            msg = "Measurements taken." if status in ("OK", "WARN", "STOP", "DONE") else ""
+            box.markdown(
+                "<div class='vxp-mono' style='white-space:pre; border-top:2px solid #808080; border-left:2px solid #808080; border-right:2px solid #ffffff; border-bottom:2px solid #ffffff; padding:10px; background:#c0c0c0;'>"
+                f"{msg}\n\n"
+                "M/R LAT\t\t1P\tDONE\n"
+                "--------------------------------\n"
+                "M/R OBT\t\t\tDONE\n"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+        # Close button placed under the box (so it never clips off-screen).
+        cols = st.columns([0.70, 0.30])
+        with cols[1]:
+            if st.button("Close", use_container_width=True, key=f"acq_close_{run}_{regime}"):
+                st.session_state.vxp_pending_regime = None
+                st.session_state.vxp_acq_done = False
+                go("collect")
+                st.rerun()
 
 
 def screen_meas_list_window():

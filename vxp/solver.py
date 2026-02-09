@@ -24,6 +24,69 @@ def balance_limit(regime: str) -> float:
     return 0.40 if regime == "GROUND" else 0.05
 
 
+# -----------------------------
+# Legacy-style limit bands (for UI icons)
+# -----------------------------
+# The original VXP shows four different symbols after each regime is collected:
+#  - Black check mark: measurement taken, but no limits defined.
+#  - Green check mark: within acceptance limits.
+#  - Green exclamation: exceeds acceptance limits.
+#  - Red stop sign: exceeds procedural limits (action required before continuing).
+#
+# For the BO105 training simulator we implement a pragmatic, two-band model:
+#   acceptance_limit < procedural_limit
+#
+# These values are chosen to be consistent with typical track & balance workflows
+# (tight acceptance band, wider “do-not-proceed” band).
+
+
+def acceptance_track_limit(regime: str) -> float:
+    return 10.0 if regime == "GROUND" else 5.0
+
+
+def procedural_track_limit(regime: str) -> float:
+    # Allowable spread before it's considered unsafe to proceed.
+    # Forward-flight tracking in many procedures mentions 50 mm as a hard boundary.
+    return 50.0 if regime == "GROUND" else 30.0
+
+
+def acceptance_balance_limit(regime: str) -> float:
+    return 0.20 if regime == "GROUND" else 0.06
+
+
+def procedural_balance_limit(regime: str) -> float:
+    return 0.40 if regime == "GROUND" else 0.20
+
+
+def regime_status(regime: str, m: Measurement | None) -> str | None:
+    """Return a status code for a regime.
+
+    None: no measurement
+    "OK": within acceptance
+    "WARN": exceeds acceptance but within procedural
+    "STOP": exceeds procedural
+    "DONE": measurement exists but no limits
+    """
+    if m is None:
+        return None
+
+    try:
+        ts = track_spread(m)
+        amp = float(m.balance.amp_ips)
+    except Exception:
+        return "DONE"
+
+    # If limits are not defined for some reason, fall back to legacy “DONE”.
+    if regime not in REGIMES:
+        return "DONE"
+
+    if ts > procedural_track_limit(regime) or amp > procedural_balance_limit(regime):
+        return "STOP"
+    if ts > acceptance_track_limit(regime) or amp > acceptance_balance_limit(regime):
+        return "WARN"
+    return "OK"
+
+
 def track_spread(m: Measurement) -> float:
     vals = [m.track_mm[b] for b in BLADES]
     return float(max(vals) - min(vals))
