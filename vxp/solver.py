@@ -3,7 +3,9 @@ from typing import Dict, Tuple
 from .types import Measurement
 
 BLADES = ["BLU", "GRN", "YEL", "RED"]
-REGIMES = ["GROUND", "HOVER", "HORIZONTAL"]
+
+# Keep in sync with vxp.sim.REGIMES
+REGIMES = ["GROUND", "HOVER", "KIAS120", "BANK45"]
 BLADE_CLOCK_DEG = {"YEL": 0.0, "RED": 90.0, "BLU": 180.0, "GRN": 270.0}
 
 PITCHLINK_MM_PER_TURN = 10.0
@@ -11,7 +13,8 @@ TRIMTAB_MMTRACK_PER_MM = 15.0
 BOLT_IPS_PER_GRAM = 0.0020
 
 def track_limit(regime: str) -> float:
-    return 5.0 if regime in ("HOVER", "HORIZONTAL") else 10.0
+    # Ground run is more permissive; hover and forward-flight are tighter.
+    return 10.0 if regime == "GROUND" else 5.0
 
 def balance_limit(regime: str) -> float:
     return 0.40 if regime == "GROUND" else 0.05
@@ -44,11 +47,15 @@ def suggest_pitchlink(meas: Dict[str, Measurement]) -> Dict[str, float]:
     return out
 
 def suggest_trimtabs(meas: Dict[str, Measurement]) -> Dict[str, float]:
-    if "HORIZONTAL" not in meas:
+    """Suggest trim-tab bending based on 120 KIAS (primary forward-flight regime).
+
+    BANK45 is typically cross-check / fine-tune; we keep the rule simple.
+    """
+    if "KIAS120" not in meas:
         return {b: 0.0 for b in BLADES}
     out = {}
     for b in BLADES:
-        dev = meas["HORIZONTAL"].track_mm[b]
+        dev = meas["KIAS120"].track_mm[b]
         out[b] = max(-5.0, min(5.0, _round_quarter((-dev) / TRIMTAB_MMTRACK_PER_MM)))
     return out
 

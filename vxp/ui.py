@@ -286,7 +286,7 @@ def screen_collect_window():
                 unsafe_allow_html=True,
             )
 
-    if run == 3 and len(done) == 3 and all_ok(current_run_data(3)):
+    if run == 3 and len(done) == len(REGIMES) and all_ok(current_run_data(3)):
         st.markdown(
             "<div class='vxp-label' style='margin-top:10px;'>✓ RUN 3 COMPLETE — PARAMETERS OK</div>",
             unsafe_allow_html=True,
@@ -364,18 +364,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
         unsafe_allow_html=True,
     )
 
-    # --- Top controls row (like legacy VXP) ---
-    c0, c1, c2, c3 = st.columns([0.20, 0.14, 0.22, 0.44], gap="small")
-
-    with c0:
-        st.markdown("<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Maximize</div>", unsafe_allow_html=True)
-        max_mode = st.selectbox(
-            "",
-            ["Normal", "Maximize"],
-            index=0,
-            key="meas_graph_max_mode",
-            label_visibility="collapsed",
-        )
+    # --- Top controls row (legacy VXP-like, without Maximize) ---
+    c1, c2, c3, c4 = st.columns([0.16, 0.22, 0.44, 0.18], gap="small")
 
     with c1:
         st.markdown("<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Run</div>", unsafe_allow_html=True)
@@ -427,38 +417,35 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
 
     compare = {r: data[r] for r in REGIMES if r in data}
 
-    # --- Layout ---
-    # Normal: list on the left, single combined VXP-like figure on the right.
-    # Maximize: show graphs only (more like the legacy 'Maximize' option).
+    # Close button is placed in the top row so it is always visible (no scroll).
+    with c4:
+        st.markdown("<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>&nbsp;</div>", unsafe_allow_html=True)
+        if st.button("Close", use_container_width=True, key="meas_graph_close_top"):
+            go("mr_menu")
+            st.rerun()
+
+    # --- Layout (legacy-style): list on the left, combined figure on the right. ---
     fig = plot_measurements_panel(compare, sel_regime, blade_ref=blade_ref)
-
-    if max_mode == "Maximize":
+    left, right = st.columns([0.54, 0.46], gap="medium")
+    with left:
+        st.markdown(
+            f"<div class='vxp-mono' style='height:600px; overflow:auto;'>{legacy_results_text(view_run, data)}</div>",
+            unsafe_allow_html=True,
+        )
+    with right:
         st.pyplot(fig, clear_figure=True)
-    else:
-        left, right = st.columns([0.54, 0.46], gap="medium")
-        with left:
-            st.markdown(
-                f"<div class='vxp-mono' style='height:600px; overflow:auto;'>{legacy_results_text(view_run, data)}</div>",
-                unsafe_allow_html=True,
-            )
-        with right:
-            st.pyplot(fig, clear_figure=True)
-
-    right_close_button("Close", on_click=lambda: go("mr_menu"))
 
 
 
 def screen_settings_window():
     win_caption("SETTINGS", active=True)
+    # User requested: only the Run selector (no flight/regime selector).
     run_selector_inline(key="run_selector_settings")
 
-    regime = st.selectbox(
-        "Regime",
-        options=REGIMES,
-        format_func=lambda r: REGIME_LABEL[r],
-        key="settings_regime",
-    )
-    adj = st.session_state.vxp_adjustments[regime]
+    # We keep adjustments internally per-regime, but the SETTINGS editor applies
+    # the same values to all regimes so the UI matches the legacy feel.
+    base_regime = REGIMES[0]
+    adj = st.session_state.vxp_adjustments[base_regime]
 
     hdr = st.columns([0.20, 0.27, 0.27, 0.26])
     hdr[0].markdown("**Blade**")
@@ -469,15 +456,14 @@ def screen_settings_window():
     for b in BLADES:
         row = st.columns([0.20, 0.27, 0.27, 0.26])
         row[0].markdown(b)
-        adj["pitch_turns"][b] = float(
-            row[1].number_input("", value=float(adj["pitch_turns"][b]), step=0.25, key=f"pl_{regime}_{b}")
-        )
-        adj["trim_mm"][b] = float(
-            row[2].number_input("", value=float(adj["trim_mm"][b]), step=0.5, key=f"tt_{regime}_{b}")
-        )
-        adj["bolt_g"][b] = float(
-            row[3].number_input("", value=float(adj["bolt_g"][b]), step=5.0, key=f"wt_{regime}_{b}")
-        )
+        pl_v = float(row[1].number_input("", value=float(adj["pitch_turns"][b]), step=0.25, key=f"pl_all_{b}"))
+        tt_v = float(row[2].number_input("", value=float(adj["trim_mm"][b]), step=0.5, key=f"tt_all_{b}"))
+        wt_v = float(row[3].number_input("", value=float(adj["bolt_g"][b]), step=5.0, key=f"wt_all_{b}"))
+
+        for rr in REGIMES:
+            st.session_state.vxp_adjustments[rr]["pitch_turns"][b] = pl_v
+            st.session_state.vxp_adjustments[rr]["trim_mm"][b] = tt_v
+            st.session_state.vxp_adjustments[rr]["bolt_g"][b] = wt_v
 
     right_close_button("Close", on_click=lambda: go("mr_menu"))
 

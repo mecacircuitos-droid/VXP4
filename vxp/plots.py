@@ -2,15 +2,30 @@ import math
 from typing import Dict, List
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 
 from .types import Measurement
 
 BLADES = ["BLU", "GRN", "YEL", "RED"]
-REGIMES = ["GROUND", "HOVER", "HORIZONTAL"]
 
-# Labels used across the UI
-REGIME_LABEL = {"GROUND": "100% Ground", "HOVER": "Hover Flight", "HORIZONTAL": "Horizontal Flight"}
-REGIME_LABEL_SHORT = {"GROUND": "100% Gnd", "HOVER": "Hover", "HORIZONTAL": "Horiz"}
+# Keep in sync with vxp.sim.REGIMES
+REGIMES = ["GROUND", "HOVER", "KIAS120", "BANK45"]
+
+# Labels used across the UI (legacy-like)
+REGIME_LABEL = {
+    "GROUND": "100% Ground",
+    "HOVER": "Hover Flight",
+    "KIAS120": "120 KIAS Level",
+    "BANK45": "45 Bank (120 K)",
+}
+
+# Short labels for the x-axis
+REGIME_LABEL_SHORT = {
+    "GROUND": "100% Ground",
+    "HOVER": "Hover Flight",
+    "KIAS120": "120 KIAS Level",
+    "BANK45": "45 Bank (120 K)",
+}
 
 # Colors to mimic the legacy VXP appearance (blue/green/yellow/red)
 BLADE_COLOR = {
@@ -19,8 +34,8 @@ BLADE_COLOR = {
     "YEL": "#B58900",
     "RED": "#B00020",
 }
-REGIME_TAG = {"GROUND": "GND", "HOVER": "HOV", "HORIZONTAL": "HOR"}
-REGIME_COLOR = {"GROUND": "#000000", "HOVER": "#0047AB", "HORIZONTAL": "#B00020"}
+REGIME_TAG = {"GROUND": "GND", "HOVER": "HOV", "KIAS120": "120", "BANK45": "45B"}
+REGIME_COLOR = {"GROUND": "#000000", "HOVER": "#0047AB", "KIAS120": "#0A8F08", "BANK45": "#B00020"}
 
 
 def _track_rel(meas: Measurement, blade_ref: str) -> List[float]:
@@ -49,6 +64,7 @@ def plot_measurements_panel(meas_by_regime: Dict[str, Measurement], selected_reg
     ax1.set_ylim(-32.5, 32.5)
     ax1.set_xlim(0.5, len(BLADES) + 0.5)
     ax1.set_yticks([-32.5, 0.0, 32.5])
+    ax1.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax1.tick_params(axis="y", labelsize=8)
     ax1.set_ylabel("mm", fontsize=8, fontweight="bold")
 
@@ -72,12 +88,7 @@ def plot_measurements_panel(meas_by_regime: Dict[str, Measurement], selected_reg
     )
     ax1.axhline(0.0, color="black", linewidth=0.8)
 
-    ax1.set_title(
-        f"Track Height (mm) — {REGIME_LABEL.get(selected_regime, selected_regime)}",
-        fontsize=9,
-        fontweight="bold",
-        pad=4,
-    )
+    # Legacy VXP screen shows no explicit title on this panel.
 
     for sp in ax1.spines.values():
         sp.set_color("black")
@@ -95,6 +106,7 @@ def plot_measurements_panel(meas_by_regime: Dict[str, Measurement], selected_reg
 
     ax2.set_ylim(-32.5, 32.5)
     ax2.set_yticks([-32.5, 0.0, 32.5])
+    ax2.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax2.tick_params(axis="y", labelsize=8)
     ax2.set_ylabel("mm", fontsize=8, fontweight="bold")
 
@@ -129,7 +141,7 @@ def plot_measurements_panel(meas_by_regime: Dict[str, Measurement], selected_reg
 
     ax2.axhline(0.0, color="black", linewidth=0.8)
     ax2.grid(True, linestyle=":", linewidth=0.6)
-    ax2.set_title(f"Track Height (rel. {blade_ref})", fontsize=9, fontweight="bold", pad=4)
+    # Legacy VXP screen shows no explicit title on this panel.
 
     # Make room on the right for the inline labels
     ax2.set_xlim(-0.15, (len(x) - 1) + 0.55 if len(x) else 1.0)

@@ -5,9 +5,20 @@ import numpy as np
 from .types import Measurement, BalanceReading
 
 BLADES = ["BLU", "GRN", "YEL", "RED"]
-REGIMES = ["GROUND", "HOVER", "HORIZONTAL"]
 
-REGIME_LABEL = {"GROUND":"100% Ground","HOVER":"Hover Flight","HORIZONTAL":"Horizontal Flight"}
+# BO105 procedure set (closer to legacy VXP screens)
+# - Ground run
+# - Hover flight
+# - 120 KIAS level
+# - 45° bank @ 120 KIAS
+REGIMES = ["GROUND", "HOVER", "KIAS120", "BANK45"]
+
+REGIME_LABEL = {
+    "GROUND": "100% Ground",
+    "HOVER": "Hover Flight",
+    "KIAS120": "120 KIAS Level",
+    "BANK45": "45 Bank (120 K)",
+}
 
 BLADE_CLOCK_DEG = {"YEL": 0.0, "RED": 90.0, "BLU": 180.0, "GRN": 270.0}
 
@@ -22,24 +33,27 @@ RUN_BASE_TRACK = {
     1: {
         "GROUND": {"BLU": +18.0, "GRN": -8.0, "YEL": 0.0, "RED": -12.0},
         "HOVER": {"BLU": +14.0, "GRN": -6.0, "YEL": 0.0, "RED": -10.0},
-        "HORIZONTAL": {"BLU": +10.0, "GRN": -4.0, "YEL": 0.0, "RED": -8.0},
+        "KIAS120": {"BLU": +10.0, "GRN": -4.0, "YEL": 0.0, "RED": -8.0},
+        "BANK45": {"BLU": +12.0, "GRN": -5.0, "YEL": 0.0, "RED": -9.0},
     },
     2: {
         "GROUND": {"BLU": +4.0, "GRN": -3.0, "YEL": 0.0, "RED": -2.0},
         "HOVER": {"BLU": +3.0, "GRN": -2.0, "YEL": 0.0, "RED": -2.0},
-        "HORIZONTAL": {"BLU": +14.0, "GRN": -6.0, "YEL": 0.0, "RED": -9.0},
+        "KIAS120": {"BLU": +14.0, "GRN": -6.0, "YEL": 0.0, "RED": -9.0},
+        "BANK45": {"BLU": +10.0, "GRN": -5.0, "YEL": 0.0, "RED": -8.0},
     },
     3: {
         "GROUND": {"BLU": +2.0, "GRN": -2.0, "YEL": 0.0, "RED": -1.0},
         "HOVER": {"BLU": +2.0, "GRN": -1.5, "YEL": 0.0, "RED": -1.0},
-        "HORIZONTAL": {"BLU": +2.0, "GRN": -2.0, "YEL": 0.0, "RED": -1.0},
+        "KIAS120": {"BLU": +2.0, "GRN": -2.0, "YEL": 0.0, "RED": -1.0},
+        "BANK45": {"BLU": +2.5, "GRN": -2.0, "YEL": 0.0, "RED": -1.2},
     },
 }
 
 RUN_BASE_BAL = {
-    1: {"GROUND": (0.30, 125.0), "HOVER": (0.12, 110.0), "HORIZONTAL": (0.09, 95.0)},
-    2: {"GROUND": (0.22, 140.0), "HOVER": (0.09, 120.0), "HORIZONTAL": (0.07, 105.0)},
-    3: {"GROUND": (0.18, 160.0), "HOVER": (0.08, 135.0), "HORIZONTAL": (0.06, 120.0)},
+    1: {"GROUND": (0.30, 125.0), "HOVER": (0.12, 110.0), "KIAS120": (0.10, 95.0), "BANK45": (0.08, 105.0)},
+    2: {"GROUND": (0.22, 140.0), "HOVER": (0.09, 120.0), "KIAS120": (0.08, 105.0), "BANK45": (0.07, 110.0)},
+    3: {"GROUND": (0.18, 160.0), "HOVER": (0.08, 135.0), "KIAS120": (0.06, 120.0), "BANK45": (0.06, 125.0)},
 }
 
 def default_adjustments():
@@ -70,7 +84,8 @@ def simulate_measurement(run: int, regime: str, adjustments: dict) -> Measuremen
     for b in BLADES:
         pitch_effect = PITCHLINK_MM_PER_TURN * float(adj["pitch_turns"][b])
         trim_effect = 0.0
-        if regime == "HORIZONTAL":
+        # Trim tabs mainly affect forward-flight regimes.
+        if regime in ("KIAS120", "BANK45"):
             trim_effect = TRIMTAB_MMTRACK_PER_MM * float(adj["trim_mm"][b])
         noise = random.gauss(0.0, 0.45)
         track[b] = float(base_track[b] + pitch_effect + trim_effect + noise)
