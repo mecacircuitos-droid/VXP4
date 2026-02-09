@@ -259,6 +259,12 @@ div[data-testid="stSelectbox"] div[role="combobox"]{
   white-space:pre;
 }
 
+/* Ensure inline spans used for blade color-coding keep fixed-width alignment */
+.vxp-mono span{
+  font-family: inherit !important;
+  white-space: inherit !important;
+}
+
 .vxp-label{ font-weight:900; }
 
 </style>

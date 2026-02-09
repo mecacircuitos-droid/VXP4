@@ -393,16 +393,20 @@ def screen_acquire_window():
         st.markdown(f"<div class='vxp-label'>RPM {BO105_DISPLAY_RPM:.0f}</div>", unsafe_allow_html=True)
 
         box = st.empty()
+        progress_ph = st.empty()
 
         # If the regime is already measured, just show the DONE summary (no re-measure).
         if already_taken:
             st.session_state.vxp_acq_done = True
 
         if not st.session_state.get("vxp_acq_done", False):
-            # Static ACQUIRING screen (no fade / animation). Hold it longer so it feels like the legacy unit.
+            # Static ACQUIRING screen (two windows side-by-side, no fade).
             box.markdown(
                 "<div class='vxp-mono' style='white-space:pre; border-top:2px solid #808080; border-left:2px solid #808080; "
                 "border-right:2px solid #ffffff; border-bottom:2px solid #ffffff; padding:10px; background:#c0c0c0;'>"
+                "ACQUIRING ...\n"
+                f"RPM {BO105_DISPLAY_RPM:.0f}\n"
+                "\n"
                 "ROLL (A-B)        1P\n"
                 "ACQUIRING\n"
                 "\n"
@@ -415,8 +419,14 @@ def screen_acquire_window():
                 unsafe_allow_html=True,
             )
 
-            # Test time: the original feels slower than the simulator.
-            time.sleep(5.0)
+            # Acquisition time: show a bottom progress bar (legacy feel) and run slightly longer.
+            duration_s = 6.5
+            steps = 65
+            prog = progress_ph.progress(0)
+            for i in range(steps):
+                prog.progress(int((i + 1) * 100 / steps))
+                time.sleep(duration_s / steps)
+            progress_ph.empty()
 
             meas = simulate_measurement(run, regime, st.session_state.vxp_adjustments)
             current_run_data(run)[regime] = meas
@@ -431,18 +441,21 @@ def screen_acquire_window():
         icon = _status_icon_html(status)
 
         if m is not None:
-            # Legacy-style DONE summary (keep it compact and very similar to screenshots)
+            # Legacy-style DONE summary (amplitude @ clock-position, plus a compact track snippet)
             amp = float(m.balance.amp_ips)
             ph = float(m.balance.phase_deg)
-            now = time.strftime("%H:%M")
+            trk = m.track_mm
 
             box.markdown(
                 "<div class='vxp-mono' style='white-space:pre; border-top:2px solid #808080; border-left:2px solid #808080; "
                 "border-right:2px solid #ffffff; border-bottom:2px solid #ffffff; padding:10px; background:#c0c0c0;'>"
-                "Measurements taken.\n"
+                "ACQUISITION DONE\n"
                 "\n"
-                f"M/R LAT           1P  DONE   {amp:0.2f} @ {now}\n"
-                f"M/R OBT               DONE   {clock_label(ph)}\n"
+                "M/R LAT           1P\n"
+                f"{amp:0.2f} @ {clock_label(ph)}\n"
+                "\n"
+                "M/R TRACK HEIGHT  mm rel. YEL\n"
+                f"BLU {trk['BLU']:+5.1f}   GRN {trk['GRN']:+5.1f}   YEL {trk['YEL']:+5.1f}   RED {trk['RED']:+5.1f}\n"
                 "</div>",
                 unsafe_allow_html=True,
             )
@@ -481,8 +494,11 @@ def screen_meas_list_window():
         st.write("No measurements for this run yet. Go to COLLECT.")
         right_close_button("Close", on_click=lambda: go("mr_menu"))
         return
+    # Use a <pre> block to keep spacing 1:1 (important for legacy-aligned tables).
     st.markdown(
-        f"<div class='vxp-mono' style='height:380px; overflow:auto; margin-top:8px;'>{legacy_results_text(view_run, data)}</div>",
+        f"<pre class='vxp-mono' style='height:380px; overflow:auto; margin-top:8px;'>"
+        f"{legacy_results_text(view_run, data)}"
+        "</pre>",
         unsafe_allow_html=True,
     )
     right_close_button("Close", on_click=lambda: go("mr_menu"))
@@ -511,8 +527,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
     )
 
     # --- Top controls row (legacy VXP-like; Maximize removed for BO105) ---
-    # User request: no "Regime" selector in this screen (BO105 uses a fixed 3-point set).
-    c1, c2, _sp = st.columns([0.20, 0.26, 0.54], gap="small")
+    # User request: no "Regime" selector in this screen.
+    c1, c2, _sp = st.columns([0.22, 0.26, 0.52], gap="small")
 
     with c1:
         st.markdown(
@@ -558,8 +574,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
 
     available = [r for r in REGIMES if r in data]
 
-    # Default regime shown (if available): Ground.
-    sel_regime = "GROUND" if "GROUND" in available else available[0]
+    # Selected balance measurement (legacy had a "Select Bal Meas" button).
+    st.session_state.setdefault("meas_graph_sel_regime", "GROUND")
+    sel_regime = str(st.session_state.get("meas_graph_sel_regime", "GROUND"))
+    if sel_regime not in available:
+        sel_regime = "GROUND" if "GROUND" in available else available[0]
+        st.session_state.meas_graph_sel_regime = sel_regime
 
     compare = {r: data[r] for r in REGIMES if r in data}
 
@@ -569,16 +589,31 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
 
     with left:
         st.markdown(
-            f"<div class='vxp-mono' style='height:600px; overflow:auto;'>{legacy_results_text(view_run, data)}</div>",
+            f"<pre class='vxp-mono' style='height:600px; overflow:auto;'>"
+            f"{legacy_results_text(view_run, data)}"
+            "</pre>",
             unsafe_allow_html=True,
         )
 
     with right:
         st.pyplot(fig, clear_figure=True)
-        # Close button below the plot area (visible, no scrolling)
-        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-        cols = st.columns([0.70, 0.30])
-        with cols[1]:
+        # Buttons below the plot area (like the legacy screen).
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        b1, b2 = st.columns([0.50, 0.50], gap="small")
+        with b1:
+            # Cycles through the available regimes, but keeps the UI "button-based" (no dropdown).
+            if st.button("Select Bal Meas", use_container_width=True, key="meas_graph_select_bal"):
+                if available:
+                    i = available.index(sel_regime) if sel_regime in available else 0
+                    st.session_state.meas_graph_sel_regime = available[(i + 1) % len(available)]
+                st.rerun()
+            st.markdown(
+                f"<div class='vxp-label' style='font-size:12px; margin-top:4px;'>"
+                f"{REGIME_LABEL.get(sel_regime, sel_regime)}"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        with b2:
             if st.button("Close", use_container_width=True, key="meas_graph_close_bottom"):
                 go("mr_menu")
                 st.rerun()
@@ -642,10 +677,11 @@ def screen_solution_text_window():
         st.write("No measurements for this run yet. Go to COLLECT.")
         right_close_button("Close", on_click=lambda: go("mr_menu"))
         return
+    # Use a <pre> block so the legacy spacing for Solution/Prediction stays aligned.
     st.markdown(
-        f"<div class='vxp-mono' style='height:380px; overflow:auto; margin-top:8px;'>"
+        f"<pre class='vxp-mono' style='height:380px; overflow:auto; margin-top:8px;'>"
         f"{legacy_results_text(view_run, data)}"
-        "</div>",
+        "</pre>",
         unsafe_allow_html=True,
     )
     right_close_button("Close", on_click=lambda: go("mr_menu"))
