@@ -169,3 +169,87 @@ def legacy_results_text(run: int, meas_by_regime: Dict[str, Measurement]) -> str
 
     lines.append("")
     return "\n".join(lines)
+
+
+def legacy_results_html(run: int, meas_by_regime: Dict[str, Measurement]) -> str:
+    """HTML report used in the UI.
+
+    Streamlit + HTML can sometimes collapse whitespace when inline spans are
+    present. For the *Adjustments* block we therefore render a real HTML table
+    with fixed column widths (so BLU/GRN/YEL/RED always line up).
+    """
+
+    # Build the classic mono text (with colored regime labels). We'll reuse it
+    # for everything except the Adjustments block.
+    txt = legacy_results_text(run, meas_by_regime)
+
+    # Split the report around the first "Adjustments" marker.
+    marker = "\nAdjustments\n"
+    if marker not in txt:
+        # Fallback: just render as-is.
+        return (
+            "<div class='vxp-mono' style='white-space:pre; height:560px; overflow:auto;'>"
+            + txt
+            + "</div>"
+        )
+
+    before, after = txt.split(marker, 1)
+
+    # Recompute adjustments to render as a stable table.
+    pl = suggest_pitchlink(meas_by_regime)
+    tt = suggest_trimtabs(meas_by_regime)
+    wb, wg = suggest_weight(meas_by_regime)
+    wrow = {b: 0.0 for b in BLADES}
+    wrow[wb] = float(wg)
+
+    def td(text: str, *, color: str | None = None, bold: bool = False, w: int = 86) -> str:
+        style = [f"width:{w}px", "padding:2px 8px", "text-align:right", "white-space:pre"]
+        if color:
+            style.append(f"color:{color}")
+        if bold:
+            style.append("font-weight:700")
+        return f"<td style='{';'.join(style)}'>{text}</td>"
+
+    def th(text: str, color: str) -> str:
+        return td(text, color=color, bold=True)
+
+    def row(label: str, vals: Dict[str, float], fmt: str) -> str:
+        return (
+            "<tr>"
+            + f"<td style='width:140px; padding:2px 8px; text-align:left; white-space:pre; font-weight:700'>{label}</td>"
+            + td(format(vals['BLU'], fmt), color=BLADE_COLOR['BLU'])
+            + td(format(vals['GRN'], fmt), color=BLADE_COLOR['GRN'])
+            + td(format(vals['YEL'], fmt), color=BLADE_COLOR['YEL'])
+            + td(format(vals['RED'], fmt), color=BLADE_COLOR['RED'])
+            + "</tr>"
+        )
+
+    table = (
+        "<div style='margin-top:6px; margin-bottom:6px; font-weight:700;'>Adjustments</div>"
+        "<table style='border-collapse:collapse; font-family:Courier New,Consolas,monospace; font-size:14px;'>"
+        "<tr>"
+        "<td style='width:140px; padding:2px 8px; text-align:left; white-space:pre; font-weight:700'></td>"
+        + th("BLU", BLADE_COLOR["BLU"])
+        + th("GRN", BLADE_COLOR["GRN"])
+        + th("YEL", BLADE_COLOR["YEL"])
+        + th("RED", BLADE_COLOR["RED"])
+        + "</tr>"
+        + row("P/L(flats)", pl, "6.2f")
+        + row("TabS5(deg)", {b: tt[b] * 0.8 for b in BLADES}, "6.1f")
+        + row("TabS6(deg)", {b: tt[b] * 0.8 for b in BLADES}, "6.1f")
+        + row("Wt(plqts)", wrow, "6.0f")
+        + "</table>"
+    )
+
+    # Remove the old adjustments lines from `after` (up to the Prediction header).
+    if "\n----- Prediction -----\n" in after:
+        _old_adj, rest = after.split("\n----- Prediction -----\n", 1)
+        after = "----- Prediction -----\n" + rest
+
+    return (
+        "<div class='vxp-mono' style='white-space:normal; height:560px; overflow:auto;'>"
+        + f"<div style='white-space:pre'>{before}</div>"
+        + table
+        + f"<div style='white-space:pre; margin-top:8px'>{after}</div>"
+        + "</div>"
+    )

@@ -11,7 +11,7 @@ from .sim import (
     default_adjustments,
     simulate_measurement,
 )
-from .reports import legacy_results_text, clock_label
+from .reports import legacy_results_text, legacy_results_html, clock_label
 from .plots import plot_measurements_panel, plot_track_marker, plot_track_graph, plot_polar, plot_polar_compare
 from .solver import all_ok, regime_status
 
@@ -588,12 +588,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
     left, right = st.columns([0.54, 0.46], gap="medium")
 
     with left:
-        st.markdown(
-            f"<pre class='vxp-mono' style='height:600px; overflow:auto;'>"
-            f"{legacy_results_text(view_run, data)}"
-            "</pre>",
-            unsafe_allow_html=True,
-        )
+        # Render as HTML so the Adjustments block can use a stable table layout.
+        st.markdown(legacy_results_html(view_run, data), unsafe_allow_html=True)
 
     with right:
         st.pyplot(fig, clear_figure=True)

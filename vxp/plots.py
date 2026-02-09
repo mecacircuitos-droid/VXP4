@@ -56,10 +56,12 @@ def plot_measurements_panel(
 
     # Right pane is around half width of XGA; build a single figure to avoid
     # Streamlit margins between multiple plots.
-    fig = plt.figure(figsize=(4.8, 5.65), dpi=120)
+    # Keep the panel compact so the two legacy-style buttons fit below the plots
+    # within a 1024×768 window.
+    fig = plt.figure(figsize=(4.8, 5.05), dpi=120)
     fig.patch.set_facecolor("#c0c0c0")
 
-    gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=[1.0, 1.2, 3.6], hspace=0.26)
+    gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=[1.0, 1.15, 3.0], hspace=0.28)
 
     regimes_present = [r for r in REGIMES if r in meas_by_regime]
     if selected_regime not in meas_by_regime and regimes_present:

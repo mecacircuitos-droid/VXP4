@@ -41,7 +41,9 @@ def balance_limit(regime: str) -> float:
 
 
 def acceptance_track_limit(regime: str) -> float:
-    return 15.0
+    # BO105 training acceptance band.
+    # Base simulated track spreads are ~8–14 mm; keep most runs in OK.
+    return 20.0
 
 
 def procedural_track_limit(regime: str) -> float:
@@ -51,11 +53,13 @@ def procedural_track_limit(regime: str) -> float:
 
 
 def acceptance_balance_limit(regime: str) -> float:
-    return 0.20 if regime == "GROUND" else 0.15
+    # BO105 training acceptance band. Keep most simulated values in OK.
+    return 0.20
 
 
 def procedural_balance_limit(regime: str) -> float:
-    return 0.40 if regime == "GROUND" else 0.25
+    # Procedural (hard) band; must remain above acceptance.
+    return 0.30
 
 
 def regime_status(regime: str, m: Measurement | None) -> str | None:
