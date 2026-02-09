@@ -17,11 +17,11 @@ BOLT_IPS_PER_GRAM = 0.0020
 
 def track_limit(regime: str) -> float:
     # Ground run is more permissive; hover and horizontal are tighter.
-    return 10.0 if regime == "GROUND" else 5.0
+    return 15.0
 
 
 def balance_limit(regime: str) -> float:
-    return 0.40 if regime == "GROUND" else 0.05
+    return 0.20 if regime == "GROUND" else 0.15
 
 
 # -----------------------------
@@ -41,21 +41,21 @@ def balance_limit(regime: str) -> float:
 
 
 def acceptance_track_limit(regime: str) -> float:
-    return 10.0 if regime == "GROUND" else 5.0
+    return 15.0
 
 
 def procedural_track_limit(regime: str) -> float:
     # Allowable spread before it's considered unsafe to proceed.
     # Forward-flight tracking in many procedures mentions 50 mm as a hard boundary.
-    return 50.0 if regime == "GROUND" else 30.0
+    return 30.0
 
 
 def acceptance_balance_limit(regime: str) -> float:
-    return 0.20 if regime == "GROUND" else 0.06
+    return 0.20 if regime == "GROUND" else 0.15
 
 
 def procedural_balance_limit(regime: str) -> float:
-    return 0.40 if regime == "GROUND" else 0.20
+    return 0.40 if regime == "GROUND" else 0.25
 
 
 def regime_status(regime: str, m: Measurement | None) -> str | None:
