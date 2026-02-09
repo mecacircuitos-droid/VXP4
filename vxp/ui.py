@@ -364,11 +364,14 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
         unsafe_allow_html=True,
     )
 
-    # --- Top controls row (legacy VXP-like, without Maximize) ---
-    c1, c2, c3, c4 = st.columns([0.16, 0.22, 0.44, 0.18], gap="small")
+    # --- Top controls row (legacy VXP-like; Maximize removed for BO105) ---
+    c1, c2, c3 = st.columns([0.20, 0.26, 0.54], gap="small")
 
     with c1:
-        st.markdown("<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Run</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Run</div>",
+            unsafe_allow_html=True,
+        )
         runs = sorted(st.session_state.vxp_runs.keys())
         cur = int(st.session_state.vxp_view_run)
         if cur not in runs:
@@ -387,7 +390,10 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
         st.session_state.vxp_view_run = view_run
 
     with c2:
-        st.markdown("<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Blade Ref1</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Blade Ref1</div>",
+            unsafe_allow_html=True,
+        )
         # Default to YEL (matches the legacy screen)
         blade_ref = st.selectbox(
             "",
@@ -406,34 +412,39 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
     available = [r for r in REGIMES if r in data]
 
     with c3:
-        st.markdown("<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Regime</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Regime</div>",
+            unsafe_allow_html=True,
+        )
         sel_regime = st.selectbox(
             "",
             available,
-            format_func=lambda rr: REGIME_LABEL[rr],
+            format_func=lambda rr: REGIME_LABEL.get(rr, rr),
             key=f"meas_graph_regime_run_{view_run}",
             label_visibility="collapsed",
         )
 
     compare = {r: data[r] for r in REGIMES if r in data}
 
-    # Close button is placed in the top row so it is always visible (no scroll).
-    with c4:
-        st.markdown("<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>&nbsp;</div>", unsafe_allow_html=True)
-        if st.button("Close", use_container_width=True, key="meas_graph_close_top"):
-            go("mr_menu")
-            st.rerun()
-
     # --- Layout (legacy-style): list on the left, combined figure on the right. ---
     fig = plot_measurements_panel(compare, sel_regime, blade_ref=blade_ref)
     left, right = st.columns([0.54, 0.46], gap="medium")
+
     with left:
         st.markdown(
             f"<div class='vxp-mono' style='height:600px; overflow:auto;'>{legacy_results_text(view_run, data)}</div>",
             unsafe_allow_html=True,
         )
+
     with right:
         st.pyplot(fig, clear_figure=True)
+        # Close button below the plot area (visible, no scrolling)
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+        cols = st.columns([0.70, 0.30])
+        with cols[1]:
+            if st.button("Close", use_container_width=True, key="meas_graph_close_bottom"):
+                go("mr_menu")
+                st.rerun()
 
 
 

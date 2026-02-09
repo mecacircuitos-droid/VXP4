@@ -1,29 +1,29 @@
 import math
 import random
+
 import numpy as np
 
-from .types import Measurement, BalanceReading
+from .types import BalanceReading, Measurement
 
 BLADES = ["BLU", "GRN", "YEL", "RED"]
 
-# BO105 procedure set (closer to legacy VXP screens)
-# - Ground run
-# - Hover flight
-# - 120 KIAS level
-# - 45° bank @ 120 KIAS
-REGIMES = ["GROUND", "HOVER", "KIAS120", "BANK45"]
+# BO105 procedure set (training / simulator)
+# Only these regimes exist for the BO105 in this simulator:
+#  - 100% Ground
+#  - Hover Flight
+#  - Horizontal Flight
+REGIMES = ["GROUND", "HOVER", "HORIZ"]
 
 REGIME_LABEL = {
     "GROUND": "100% Ground",
     "HOVER": "Hover Flight",
-    "KIAS120": "120 KIAS Level",
-    "BANK45": "45 Bank (120 K)",
+    "HORIZ": "Horizontal Flight",
 }
 
 BLADE_CLOCK_DEG = {"YEL": 0.0, "RED": 90.0, "BLU": 180.0, "GRN": 270.0}
 
-# BO105 (entrenamiento) — RPM típica de referencia en el banco del simulador
-BO105_DISPLAY_RPM = 433.0
+# BO105 — RPM de referencia en el simulador
+BO105_DISPLAY_RPM = 424.0
 
 PITCHLINK_MM_PER_TURN = 10.0
 TRIMTAB_MMTRACK_PER_MM = 15.0
@@ -33,28 +33,26 @@ RUN_BASE_TRACK = {
     1: {
         "GROUND": {"BLU": +18.0, "GRN": -8.0, "YEL": 0.0, "RED": -12.0},
         "HOVER": {"BLU": +14.0, "GRN": -6.0, "YEL": 0.0, "RED": -10.0},
-        "KIAS120": {"BLU": +10.0, "GRN": -4.0, "YEL": 0.0, "RED": -8.0},
-        "BANK45": {"BLU": +12.0, "GRN": -5.0, "YEL": 0.0, "RED": -9.0},
+        "HORIZ": {"BLU": +10.0, "GRN": -4.0, "YEL": 0.0, "RED": -8.0},
     },
     2: {
         "GROUND": {"BLU": +4.0, "GRN": -3.0, "YEL": 0.0, "RED": -2.0},
         "HOVER": {"BLU": +3.0, "GRN": -2.0, "YEL": 0.0, "RED": -2.0},
-        "KIAS120": {"BLU": +14.0, "GRN": -6.0, "YEL": 0.0, "RED": -9.0},
-        "BANK45": {"BLU": +10.0, "GRN": -5.0, "YEL": 0.0, "RED": -8.0},
+        "HORIZ": {"BLU": +2.5, "GRN": -2.0, "YEL": 0.0, "RED": -1.5},
     },
     3: {
         "GROUND": {"BLU": +2.0, "GRN": -2.0, "YEL": 0.0, "RED": -1.0},
         "HOVER": {"BLU": +2.0, "GRN": -1.5, "YEL": 0.0, "RED": -1.0},
-        "KIAS120": {"BLU": +2.0, "GRN": -2.0, "YEL": 0.0, "RED": -1.0},
-        "BANK45": {"BLU": +2.5, "GRN": -2.0, "YEL": 0.0, "RED": -1.2},
+        "HORIZ": {"BLU": +2.0, "GRN": -2.0, "YEL": 0.0, "RED": -1.0},
     },
 }
 
 RUN_BASE_BAL = {
-    1: {"GROUND": (0.30, 125.0), "HOVER": (0.12, 110.0), "KIAS120": (0.10, 95.0), "BANK45": (0.08, 105.0)},
-    2: {"GROUND": (0.22, 140.0), "HOVER": (0.09, 120.0), "KIAS120": (0.08, 105.0), "BANK45": (0.07, 110.0)},
-    3: {"GROUND": (0.18, 160.0), "HOVER": (0.08, 135.0), "KIAS120": (0.06, 120.0), "BANK45": (0.06, 125.0)},
+    1: {"GROUND": (0.30, 125.0), "HOVER": (0.11, 110.0), "HORIZ": (0.10, 90.0)},
+    2: {"GROUND": (0.22, 140.0), "HOVER": (0.09, 120.0), "HORIZ": (0.08, 105.0)},
+    3: {"GROUND": (0.18, 160.0), "HOVER": (0.08, 135.0), "HORIZ": (0.06, 120.0)},
 }
+
 
 def default_adjustments():
     return {
@@ -66,14 +64,17 @@ def default_adjustments():
         for r in REGIMES
     }
 
+
 def _vec_from_clock_deg(theta_deg: float) -> np.ndarray:
     phi = math.radians(90.0 - theta_deg)
     return np.array([math.cos(phi), math.sin(phi)], dtype=float)
+
 
 def _clock_deg_from_vec(v: np.ndarray) -> float:
     x, y = float(v[0]), float(v[1])
     phi = math.degrees(math.atan2(y, x))
     return (90.0 - phi) % 360.0
+
 
 def simulate_measurement(run: int, regime: str, adjustments: dict) -> Measurement:
     adj = adjustments[regime]
@@ -83,18 +84,22 @@ def simulate_measurement(run: int, regime: str, adjustments: dict) -> Measuremen
     track = {}
     for b in BLADES:
         pitch_effect = PITCHLINK_MM_PER_TURN * float(adj["pitch_turns"][b])
+
         trim_effect = 0.0
-        # Trim tabs mainly affect forward-flight regimes.
-        if regime in ("KIAS120", "BANK45"):
+        # Trim tabs mainly affect the forward-flight regime in this simplified model.
+        if regime == "HORIZ":
             trim_effect = TRIMTAB_MMTRACK_PER_MM * float(adj["trim_mm"][b])
+
         noise = random.gauss(0.0, 0.45)
         track[b] = float(base_track[b] + pitch_effect + trim_effect + noise)
 
+    # Normalize: track is always shown relative to YEL
     yel0 = float(track["YEL"])
     for b in BLADES:
         track[b] = float(track[b] - yel0)
     track["YEL"] = 0.0
 
+    # Simple 1/rev balance vector model
     v = _vec_from_clock_deg(base_phase) * float(base_amp)
     for b in BLADES:
         grams = float(adj["bolt_g"][b])

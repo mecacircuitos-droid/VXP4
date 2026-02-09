@@ -1,27 +1,33 @@
 import math
 from typing import Dict, Tuple
+
 from .types import Measurement
 
 BLADES = ["BLU", "GRN", "YEL", "RED"]
 
 # Keep in sync with vxp.sim.REGIMES
-REGIMES = ["GROUND", "HOVER", "KIAS120", "BANK45"]
+REGIMES = ["GROUND", "HOVER", "HORIZ"]
+
 BLADE_CLOCK_DEG = {"YEL": 0.0, "RED": 90.0, "BLU": 180.0, "GRN": 270.0}
 
 PITCHLINK_MM_PER_TURN = 10.0
 TRIMTAB_MMTRACK_PER_MM = 15.0
 BOLT_IPS_PER_GRAM = 0.0020
 
+
 def track_limit(regime: str) -> float:
-    # Ground run is more permissive; hover and forward-flight are tighter.
+    # Ground run is more permissive; hover and horizontal are tighter.
     return 10.0 if regime == "GROUND" else 5.0
+
 
 def balance_limit(regime: str) -> float:
     return 0.40 if regime == "GROUND" else 0.05
 
+
 def track_spread(m: Measurement) -> float:
     vals = [m.track_mm[b] for b in BLADES]
     return float(max(vals) - min(vals))
+
 
 def all_ok(meas_by_regime: Dict[str, Measurement]) -> bool:
     for r in REGIMES:
@@ -33,10 +39,13 @@ def all_ok(meas_by_regime: Dict[str, Measurement]) -> bool:
             return False
     return True
 
+
 def _round_quarter(x: float) -> float:
     return round(x * 4.0) / 4.0
 
+
 def suggest_pitchlink(meas: Dict[str, Measurement]) -> Dict[str, float]:
+    # Primary pitch-link adjustment is based on ground + hover.
     used = [r for r in ("GROUND", "HOVER") if r in meas]
     if not used:
         return {b: 0.0 for b in BLADES}
@@ -46,22 +55,26 @@ def suggest_pitchlink(meas: Dict[str, Measurement]) -> Dict[str, float]:
         out[b] = _round_quarter((-avg) / PITCHLINK_MM_PER_TURN)
     return out
 
-def suggest_trimtabs(meas: Dict[str, Measurement]) -> Dict[str, float]:
-    """Suggest trim-tab bending based on 120 KIAS (primary forward-flight regime).
 
-    BANK45 is typically cross-check / fine-tune; we keep the rule simple.
+def suggest_trimtabs(meas: Dict[str, Measurement]) -> Dict[str, float]:
+    """Suggest trim-tab bending based on Horizontal Flight.
+
+    In this simplified BO105 workflow, Horizontal Flight is the only
+    forward-flight regime.
     """
-    if "KIAS120" not in meas:
+    if "HORIZ" not in meas:
         return {b: 0.0 for b in BLADES}
     out = {}
     for b in BLADES:
-        dev = meas["KIAS120"].track_mm[b]
+        dev = meas["HORIZ"].track_mm[b]
         out[b] = max(-5.0, min(5.0, _round_quarter((-dev) / TRIMTAB_MMTRACK_PER_MM)))
     return out
+
 
 def suggest_weight(meas: Dict[str, Measurement]) -> Tuple[str, float]:
     if not meas:
         return ("YEL", 0.0)
+
     worst_r = max(meas.keys(), key=lambda r: meas[r].balance.amp_ips)
     m = meas[worst_r]
     amp = m.balance.amp_ips
