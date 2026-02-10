@@ -312,14 +312,12 @@ def screen_mr_menu_window():
 
 def screen_collect_window():
     run = int(st.session_state.vxp_run)
-    # When a regime is selected, we show the acquisition dialog to the right
-    # **without changing screen**. This prevents rendering the COLLECT list twice
-    # (a common Streamlit layout pitfall) and matches the legacy feel.
-    pending = st.session_state.get("vxp_pending_regime")
 
+    pending = st.session_state.get("vxp_pending_regime")
     data = current_run_data(run)
     done = completed_set(run)
 
+    # ✅ CORRECTO: si no hay pending, no se crean columnas dobles
     if pending:
         left, right = st.columns([0.44, 0.56], gap="medium")
     else:
@@ -335,8 +333,6 @@ def screen_collect_window():
         )
         st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-        # While the acquisition dialog is open, keep the list visible but disable
-        # the buttons (legacy behaved like a modal dialog).
         disable_list = pending is not None
 
         for r in REGIMES:
@@ -345,13 +341,14 @@ def screen_collect_window():
                 if st.button(
                     REGIME_LABEL[r],
                     use_container_width=True,
-                    disabled=disable_list,
+                    disabled=disable_list or (r in done),
                     key=f"reg_{run}_{r}",
                 ):
                     st.session_state.vxp_pending_regime = r
                     st.session_state.vxp_acq_in_progress = False
                     st.session_state.vxp_acq_done = (r in done)
                     st.rerun()
+
             with cols[1]:
                 icon = _status_icon_html(regime_status(r, data.get(r)))
                 st.markdown(
@@ -361,21 +358,16 @@ def screen_collect_window():
                     unsafe_allow_html=True,
                 )
 
-        if run == 3 and len(done) == len(REGIMES) and all_ok(current_run_data(3)):
-            st.markdown(
-                "<div class='vxp-label' style='margin-top:10px;'>✓ RUN 3 COMPLETE — PARAMETERS OK</div>",
-                unsafe_allow_html=True,
-            )
-
-        # Only show COLLECT Close when not in the modal acquisition dialog.
+        # ✅ Close solo si NO hay adquisición activa
         if pending is None:
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             right_close_button("Close", on_click=lambda: go("mr_menu"))
 
     # ---------------- Right: Acquisition dialog (modal) ----------------
-    if pending:
+    if pending and right is not None:
         with right:
             _render_acquire_dialog(run, pending)
+
 
 
 def _render_acquire_dialog(run: int, regime: str) -> None:
