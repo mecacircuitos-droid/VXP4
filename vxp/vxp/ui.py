@@ -11,7 +11,7 @@ from .sim import (
     default_adjustments,
     simulate_measurement,
 )
-from .reports import legacy_results_text, legacy_results_html, clock_label
+from .reports import legacy_results_text, legacy_results_plain_text, legacy_results_html, clock_label
 from .plots import plot_measurements_panel, plot_track_marker, plot_track_graph, plot_polar, plot_polar_compare
 from .solver import all_ok, regime_status
 
@@ -636,14 +636,16 @@ def screen_meas_list_window():
         st.write("No measurements for this run yet. Go to COLLECT.")
         right_close_button("Close", on_click=lambda: go("mr_menu"))
         return
-    # Render inside a classic white inset box (like the legacy VXP screen).
-    # We use a <div> (not <pre>) because Streamlit + <pre> + inline <span>
-    # can sometimes break the layout and spill outside the white box.
-    st.markdown(
-        "<div class='vxp-mono' style='height:420px; overflow:auto; margin-top:8px;'>"
-        + legacy_results_text(view_run, data)
-        + "</div>",
-        unsafe_allow_html=True,
+    # User request: show the report inside a NORMAL textbox (white inset area)
+    # like the early versions. We therefore strip HTML coloring and render as
+    # a disabled text_area, which is stable across Streamlit versions.
+    st.text_area(
+        "",
+        value=legacy_results_plain_text(view_run, data),
+        height=420,
+        key=f"meas_list_box_{view_run}",
+        disabled=True,
+        label_visibility="collapsed",
     )
     right_close_button("Close", on_click=lambda: go("mr_menu"))
 
@@ -825,12 +827,15 @@ def screen_solution_text_window():
         st.write("No measurements for this run yet. Go to COLLECT.")
         right_close_button("Close", on_click=lambda: go("mr_menu"))
         return
-    # Use a <pre> block so the legacy spacing for Solution/Prediction stays aligned.
-    st.markdown(
-        f"<pre class='vxp-mono' style='height:380px; overflow:auto; margin-top:8px;'>"
-        f"{legacy_results_text(view_run, data)}"
-        "</pre>",
-        unsafe_allow_html=True,
+    # User request: SOLUTION should be a normal report textbox (no broken
+    # inline coloring). We render plain text in a disabled text_area.
+    st.text_area(
+        "",
+        value=legacy_results_plain_text(view_run, data),
+        height=380,
+        key=f"solution_box_{view_run}",
+        disabled=True,
+        label_visibility="collapsed",
     )
     right_close_button("Close", on_click=lambda: go("mr_menu"))
 

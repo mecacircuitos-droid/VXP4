@@ -25,6 +25,19 @@ XP_CSS = (
 [data-testid="stHeader"], [data-testid="stToolbar"], #MainMenu { display:none !important; }
 footer { visibility:hidden; }
 
+/* ---- Disable Streamlit fade/transition artifacts ----
+   Streamlit sometimes fades out replaced elements on reruns.
+   In our fixed 1024×768 desktop this can look like a 'ghost' copy
+   of the previous window that slowly fades out (the issue you reported).
+   We disable animations/transitions inside the app view.
+*/
+div[data-testid="stAppViewContainer"] *,
+div[data-testid="stAppViewContainer"] *::before,
+div[data-testid="stAppViewContainer"] *::after{
+  transition:none !important;
+  animation:none !important;
+}
+
 /* ---- Global look (Windows XP-ish) ---- */
 /* The page background simulates a ruggedized tablet around the 1024×768 screen. */
 html, body, [data-testid="stAppViewContainer"]{
@@ -243,6 +256,20 @@ div[data-testid="stSelectbox"] div[role="combobox"]{
   border-bottom:2px solid #404040 !important;
   background:#ffffff !important;
   font-weight:700 !important;
+}
+
+/* Text areas (reports) */
+div[data-testid="stTextArea"] textarea{
+  border-radius:0px !important;
+  border-top:2px solid #ffffff !important;
+  border-left:2px solid #ffffff !important;
+  border-right:2px solid #404040 !important;
+  border-bottom:2px solid #404040 !important;
+  background:#ffffff !important;
+  font-family:"Courier New", Consolas, monospace !important;
+  font-weight:700 !important;
+  font-size:14px !important;
+  line-height:1.15 !important;
 }
 
 /* Mono text blocks */

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict, List, Tuple
+import re
 
 from .types import Measurement
 from .solver import suggest_pitchlink, suggest_trimtabs, suggest_weight
@@ -169,6 +170,18 @@ def legacy_results_text(run: int, meas_by_regime: Dict[str, Measurement]) -> str
 
     lines.append("")
     return "\n".join(lines)
+
+
+def legacy_results_plain_text(run: int, meas_by_regime: Dict[str, Measurement]) -> str:
+    """Same report as legacy_results_text but without HTML tags.
+
+    Useful for rendering inside Streamlit widgets like st.text_area where we
+    want a 'normal' textbox and reliable monospace alignment.
+    """
+
+    txt = legacy_results_text(run, meas_by_regime)
+    # Remove the inline <span ...> color wrappers.
+    return re.sub(r"</?span[^>]*>", "", txt)
 
 
 def legacy_results_html(run: int, meas_by_regime: Dict[str, Measurement]) -> str:
