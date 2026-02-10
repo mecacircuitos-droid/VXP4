@@ -323,7 +323,8 @@ def screen_collect_window():
     if pending:
         left, right = st.columns([0.44, 0.56], gap="medium")
     else:
-        left, right = st.columns([1.0, 0.0])
+        left = st.container()
+        right = None
 
     # ---------------- Left: COLLECT list ----------------
     with left:
