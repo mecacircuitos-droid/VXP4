@@ -239,7 +239,11 @@ def render_active_window() -> None:
     elif screen == "collect":
         screen_collect_window()
     elif screen == "acquire":
-        screen_acquire_window()
+        # Backward compatibility: older builds navigated to an explicit
+        # ACQUIRE screen. We now render acquisition as a modal inside COLLECT
+        # to avoid duplicate button panes.
+        go("collect")
+        st.rerun()
     elif screen == "meas_list":
         screen_meas_list_window()
     elif screen == "meas_graph":
@@ -308,44 +312,174 @@ def screen_mr_menu_window():
 
 def screen_collect_window():
     run = int(st.session_state.vxp_run)
-    win_caption(f"RPM  {BO105_DISPLAY_RPM:.1f}", active=True)
-    st.markdown(
-        f"<div class='vxp-label' style='margin-top:8px;'>Main Rotor: Run {run} &nbsp;&nbsp;&nbsp; Day Mode</div>",
-        unsafe_allow_html=True,
-    )
+    # When a regime is selected, we show the acquisition dialog to the right
+    # **without changing screen**. This prevents rendering the COLLECT list twice
+    # (a common Streamlit layout pitfall) and matches the legacy feel.
+    pending = st.session_state.get("vxp_pending_regime")
 
     data = current_run_data(run)
     done = completed_set(run)
-    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-    for r in REGIMES:
-        cols = st.columns([0.84, 0.16])
-        with cols[0]:
-            if st.button(REGIME_LABEL[r], use_container_width=True, key=f"reg_{run}_{r}"):
-                # Allow opening the acquisition dialog for review,
-                # but do not re-run the measurement if it's already taken.
-                st.session_state.vxp_pending_regime = r
-                st.session_state.vxp_acq_in_progress = False
-                st.session_state.vxp_acq_done = (r in done)
-                go("acquire")
-                st.rerun()
-        with cols[1]:
-            icon = _status_icon_html(regime_status(r, data.get(r)))
+    if pending:
+        left, right = st.columns([0.44, 0.56], gap="medium")
+    else:
+        left, right = st.columns([1.0, 0.0])
+
+    # ---------------- Left: COLLECT list ----------------
+    with left:
+        win_caption(f"RPM  {BO105_DISPLAY_RPM:.1f}", active=(pending is None))
+        st.markdown(
+            f"<div class='vxp-label' style='margin-top:8px;'>Main Rotor: Run {run} &nbsp;&nbsp;&nbsp; Day Mode</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+        # While the acquisition dialog is open, keep the list visible but disable
+        # the buttons (legacy behaved like a modal dialog).
+        disable_list = pending is not None
+
+        for r in REGIMES:
+            cols = st.columns([0.84, 0.16])
+            with cols[0]:
+                if st.button(
+                    REGIME_LABEL[r],
+                    use_container_width=True,
+                    disabled=disable_list,
+                    key=f"reg_{run}_{r}",
+                ):
+                    st.session_state.vxp_pending_regime = r
+                    st.session_state.vxp_acq_in_progress = False
+                    st.session_state.vxp_acq_done = (r in done)
+                    st.rerun()
+            with cols[1]:
+                icon = _status_icon_html(regime_status(r, data.get(r)))
+                st.markdown(
+                    "<div style='height:40px; display:flex; align-items:center; justify-content:center;'>"
+                    + (icon if r in done else "")
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+
+        if run == 3 and len(done) == len(REGIMES) and all_ok(current_run_data(3)):
             st.markdown(
-                "<div style='height:40px; display:flex; align-items:center; justify-content:center;'>"
-                + (icon if r in done else "")
-                + "</div>",
+                "<div class='vxp-label' style='margin-top:10px;'>✓ RUN 3 COMPLETE — PARAMETERS OK</div>",
                 unsafe_allow_html=True,
             )
 
-    if run == 3 and len(done) == len(REGIMES) and all_ok(current_run_data(3)):
-        st.markdown(
-            "<div class='vxp-label' style='margin-top:10px;'>✓ RUN 3 COMPLETE — PARAMETERS OK</div>",
+        # Only show COLLECT Close when not in the modal acquisition dialog.
+        if pending is None:
+            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+            right_close_button("Close", on_click=lambda: go("mr_menu"))
+
+    # ---------------- Right: Acquisition dialog (modal) ----------------
+    if pending:
+        with right:
+            _render_acquire_dialog(run, pending)
+
+
+def _render_acquire_dialog(run: int, regime: str) -> None:
+    """Render the legacy-like ACQUIRING/DONE dialog (used inside COLLECT)."""
+
+    data = current_run_data(run)
+    done = completed_set(run)
+    already_taken = regime in done
+
+    # Title bar stays as ACQUIRING (legacy). Content will show DONE when finished.
+    win_caption("ACQUIRING …", active=True)
+    st.markdown(
+        f"<div class='vxp-label' style='margin-top:8px;'>{REGIME_LABEL[regime]}</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"<div class='vxp-label'>RPM {BO105_DISPLAY_RPM:.0f}</div>", unsafe_allow_html=True)
+
+    box = st.empty()
+    progress_ph = st.empty()
+
+    # If the regime is already measured, just show the DONE summary (no re-measure).
+    if already_taken:
+        st.session_state.vxp_acq_done = True
+
+    if not st.session_state.get("vxp_acq_done", False):
+        box.markdown(
+            "<div class='vxp-mono' style='white-space:pre; border-top:2px solid #808080; border-left:2px solid #808080; "
+            "border-right:2px solid #ffffff; border-bottom:2px solid #ffffff; padding:10px; background:#c0c0c0;'>"
+            "ACQUIRING ...\n"
+            f"RPM {BO105_DISPLAY_RPM:.0f}\n"
+            "\n"
+            "ROLL (A-B)        1P\n"
+            "ACQUIRING\n"
+            "\n"
+            "M/R LAT           1P\n"
+            "ACQUIRING\n"
+            "--------------------------------\n"
+            "M/R OBT\n"
+            "ACQUIRING\n"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        # Acquisition time: bottom progress bar (legacy feel).
+        duration_s = 6.5
+        steps = 65
+        prog = progress_ph.progress(0)
+        for i in range(steps):
+            prog.progress(int((i + 1) * 100 / steps))
+            time.sleep(duration_s / steps)
+        progress_ph.empty()
+
+        meas = simulate_measurement(run, regime, st.session_state.vxp_adjustments)
+        current_run_data(run)[regime] = meas
+        completed_set(run).add(regime)
+
+        st.session_state.vxp_acq_done = True
+        st.rerun()
+
+    # DONE summary
+    m = current_run_data(run).get(regime)
+    status = regime_status(regime, m)
+    icon = _status_icon_html(status)
+
+    if m is not None:
+        amp = float(m.balance.amp_ips)
+        ph = float(m.balance.phase_deg)
+        trk = m.track_mm
+        box.markdown(
+            "<div class='vxp-mono' style='white-space:pre; border-top:2px solid #808080; border-left:2px solid #808080; "
+            "border-right:2px solid #ffffff; border-bottom:2px solid #ffffff; padding:10px; background:#c0c0c0;'>"
+            "ACQUISITION DONE\n"
+            "\n"
+            "M/R LAT           1P\n"
+            f"{amp:0.2f} @ {clock_label(ph)}\n"
+            "\n"
+            "M/R TRACK HEIGHT  mm rel. YEL\n"
+            f"BLU {trk['BLU']:+5.1f}   GRN {trk['GRN']:+5.1f}   YEL {trk['YEL']:+5.1f}   RED {trk['RED']:+5.1f}\n"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        box.markdown(
+            "<div class='vxp-mono' style='white-space:pre; border-top:2px solid #808080; border-left:2px solid #808080; "
+            "border-right:2px solid #ffffff; border-bottom:2px solid #ffffff; padding:10px; background:#c0c0c0;'>"
+            "ACQUISITION DONE\n"
+            "</div>",
             unsafe_allow_html=True,
         )
 
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-    right_close_button("Close", on_click=lambda: go("mr_menu"))
+
+    cols = st.columns([0.70, 0.30])
+    with cols[0]:
+        st.markdown(
+            "<div style='height:34px; display:flex; align-items:center; gap:8px; justify-content:flex-start;'>"
+            + (icon if icon else "")
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+    with cols[1]:
+        if st.button("Close", use_container_width=True, key=f"acq_close_{run}_{regime}"):
+            st.session_state.vxp_pending_regime = None
+            st.session_state.vxp_acq_done = False
+            st.rerun()
 
 def screen_acquire_window():
     run = int(st.session_state.vxp_run)
@@ -494,11 +628,13 @@ def screen_meas_list_window():
         st.write("No measurements for this run yet. Go to COLLECT.")
         right_close_button("Close", on_click=lambda: go("mr_menu"))
         return
-    # Use a <pre> block to keep spacing 1:1 (important for legacy-aligned tables).
+    # Render inside a classic white inset box (like the legacy VXP screen).
+    # We use a <div> (not <pre>) because Streamlit + <pre> + inline <span>
+    # can sometimes break the layout and spill outside the white box.
     st.markdown(
-        f"<pre class='vxp-mono' style='height:380px; overflow:auto; margin-top:8px;'>"
-        f"{legacy_results_text(view_run, data)}"
-        "</pre>",
+        "<div class='vxp-mono' style='height:420px; overflow:auto; margin-top:8px;'>"
+        + legacy_results_text(view_run, data)
+        + "</div>",
         unsafe_allow_html=True,
     )
     right_close_button("Close", on_click=lambda: go("mr_menu"))
@@ -527,8 +663,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
     )
 
     # --- Top controls row (legacy VXP-like; Maximize removed for BO105) ---
-    # User request: no "Regime" selector in this screen.
-    c1, c2, _sp = st.columns([0.22, 0.26, 0.52], gap="small")
+    # Legacy screen shows a compact Regime selector for the Track plots.
+    c1, c2, c3, _sp = st.columns([0.18, 0.22, 0.22, 0.38], gap="small")
 
     with c1:
         st.markdown(
@@ -552,6 +688,21 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
         )
         st.session_state.vxp_view_run = view_run
 
+    data = current_run_data(view_run)
+    if not data:
+        st.write("No measurements for this run yet. Go to COLLECT.")
+        right_close_button("Close", on_click=lambda: go("mr_menu"))
+        return
+
+    available = [r for r in REGIMES if r in data]
+
+    # Selected balance/track measurement (default to Ground if present).
+    st.session_state.setdefault("meas_graph_sel_regime", "GROUND")
+    sel_regime = str(st.session_state.get("meas_graph_sel_regime", "GROUND"))
+    if sel_regime not in available:
+        sel_regime = "GROUND" if "GROUND" in available else available[0]
+        st.session_state.meas_graph_sel_regime = sel_regime
+
     with c2:
         st.markdown(
             "<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Blade Ref1</div>",
@@ -566,19 +717,19 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stSelectbox"] d
             label_visibility="collapsed",
         )
 
-    data = current_run_data(view_run)
-    if not data:
-        st.write("No measurements for this run yet. Go to COLLECT.")
-        right_close_button("Close", on_click=lambda: go("mr_menu"))
-        return
-
-    available = [r for r in REGIMES if r in data]
-
-    # Selected balance measurement (legacy had a "Select Bal Meas" button).
-    st.session_state.setdefault("meas_graph_sel_regime", "GROUND")
-    sel_regime = str(st.session_state.get("meas_graph_sel_regime", "GROUND"))
-    if sel_regime not in available:
-        sel_regime = "GROUND" if "GROUND" in available else available[0]
+    with c3:
+        st.markdown(
+            "<div class='vxp-label' style='font-size:12px; margin:0 0 2px 0;'>Regime</div>",
+            unsafe_allow_html=True,
+        )
+        sel_regime = st.selectbox(
+            "",
+            options=available,
+            index=available.index(sel_regime) if sel_regime in available else 0,
+            key="meas_graph_regime_sel",
+            format_func=lambda r: REGIME_LABEL.get(r, r),
+            label_visibility="collapsed",
+        )
         st.session_state.meas_graph_sel_regime = sel_regime
 
     compare = {r: data[r] for r in REGIMES if r in data}
